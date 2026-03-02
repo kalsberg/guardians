@@ -18,7 +18,6 @@ htmlcov/
 
 # Local environment files
 .env
-.env.*
 
 # SQLite / local data
 *.db

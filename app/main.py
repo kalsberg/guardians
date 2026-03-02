@@ -3,13 +3,13 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import Annotated, Dict, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Response, status
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import Depends, FastAPI, Form, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .auth import TokenResponse, User, authenticate_user, create_access_token, get_current_user, is_admin
 from .database import get_db, get_default_database_url, make_engine, make_session_factory
+from .docs_utils import custom_swagger_ui_html
 from .models import Base, Project
 from .schemas import ProjectCreate, ProjectRead, ProjectUpdate
 
@@ -25,15 +25,22 @@ def create_app(database_url: Optional[str] = None) -> FastAPI:
         Base.metadata.create_all(bind=app.state.engine)
         yield
 
-    app = FastAPI(title="Project Registry API", version="1.0.0", lifespan=lifespan)
+    app = FastAPI(title="Project Registry API", version="1.0.0", lifespan=lifespan, docs_url=None)
+
+    @app.get("/docs", include_in_schema=False)
+    def docs() -> Response:
+        return custom_swagger_ui_html(app)
 
     @app.get("/health", tags=["health"])
     def health() -> Dict[str, str]:
         return {"status": "ok"}
 
     @app.post("/auth/token", response_model=TokenResponse, tags=["auth"])
-    def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> TokenResponse:
-        user = authenticate_user(form_data.username, form_data.password)
+    def login(
+        username: Annotated[str, Form()],
+        password: Annotated[str, Form()],
+    ) -> TokenResponse:
+        user = authenticate_user(username, password)
         if user is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
